@@ -1,4 +1,4 @@
-name: API client inventory
+name: Remove API inventory
 
 on:
   push:
@@ -6,50 +6,29 @@ on:
       - master
     paths:
       - .github/workflows/api-client-inventory.yml
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  inventory:
+  cleanup:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Export compatibility source
+      - name: Remove temporary inventory
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .github/api-client-inventory
-          find packages/api-client -type f -not -path '*/node_modules/*' | sort > .github/api-client-inventory/tree.txt
-          : > .github/api-client-inventory/source.txt
-          while IFS= read -r file; do
-            case "$file" in
-              *.ts|*.tsx|*.json|*.md|*.mjs)
-                printf '\n===== FILE: %s =====\n' "$file" >> .github/api-client-inventory/source.txt
-                cat "$file" >> .github/api-client-inventory/source.txt
-                printf '\n' >> .github/api-client-inventory/source.txt
-                ;;
-            esac
-          done < .github/api-client-inventory/tree.txt
+          rm -rf \
+            .github/api-client-inventory \
+            .github/workflows/api-client-inventory.yml
 
-          : > .github/api-client-inventory/comment-backend.txt
-          find apps/core/src -type f -iname '*comment*' | sort | while IFS= read -r file; do
-            printf '\n===== FILE: %s =====\n' "$file" >> .github/api-client-inventory/comment-backend.txt
-            cat "$file" >> .github/api-client-inventory/comment-backend.txt
-            printf '\n' >> .github/api-client-inventory/comment-backend.txt
-          done
-
-      - name: Commit inventory
-        shell: bash
-        run: |
-          set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add .github/api-client-inventory
+          git add -A
           git diff --cached --quiet && exit 0
-          git commit -m 'chore: generate api client inventory'
+          git commit -m 'chore: remove api inventory diagnostics'
           git push
