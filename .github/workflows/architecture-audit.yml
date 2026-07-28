@@ -1,4 +1,4 @@
-name: Core API surface audit
+name: Core migration audit
 
 on:
   push:
@@ -17,34 +17,24 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Collect current API surface
+      - name: Inspect migration support
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p .github/architecture-audit
-          find packages/api-client apps/core/src \
-            -type f \
-            -not -path '*/node_modules/*' \
-            | sort > .github/architecture-audit/api-tree.txt
-
-          : > .github/architecture-audit/api-surface.txt
-          while IFS= read -r file; do
-            case "$file" in
-              *.ts|*.mjs|*.json)
-                if grep -Eiq 'upload|objects|files|owner|auth|aggregate|search|socket|gateway|comments|subscribe|recently|api/v3' "$file"; then
-                  printf '\n===== FILE: %s =====\n' "$file" >> .github/architecture-audit/api-surface.txt
-                  cat "$file" >> .github/architecture-audit/api-surface.txt
-                  printf '\n' >> .github/architecture-audit/api-surface.txt
-                fi
-                ;;
-            esac
-          done < .github/architecture-audit/api-tree.txt
+          grep -RInEi \
+            --exclude-dir=.git \
+            --exclude-dir=node_modules \
+            --exclude='pnpm-lock.yaml' \
+            '(mongodb|mongo[^a-z]|mongo.*postgres|postgres.*mongo|cross.database|data migration|数据迁移)' \
+            README.md docs apps packages scripts 2>/dev/null \
+            > .github/architecture-audit/mongo-postgres.txt || true
       - name: Commit audit
         shell: bash
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add .github/architecture-audit
+          git add .github/architecture-audit/mongo-postgres.txt
           git diff --cached --quiet && exit 0
-          git commit -m 'chore: record current Core v3 API surface'
+          git commit -m 'chore: record MongoDB migration support audit'
           git push
