@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Export API client source
+      - name: Export compatibility source
         shell: bash
         run: |
           set -euo pipefail
@@ -35,6 +35,13 @@ jobs:
                 ;;
             esac
           done < .github/api-client-inventory/tree.txt
+
+          : > .github/api-client-inventory/comment-backend.txt
+          find apps/core/src -type f -iname '*comment*' | sort | while IFS= read -r file; do
+            printf '\n===== FILE: %s =====\n' "$file" >> .github/api-client-inventory/comment-backend.txt
+            cat "$file" >> .github/api-client-inventory/comment-backend.txt
+            printf '\n' >> .github/api-client-inventory/comment-backend.txt
+          done
 
       - name: Commit inventory
         shell: bash
