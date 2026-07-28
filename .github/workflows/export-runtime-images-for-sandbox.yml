@@ -1,0 +1,59 @@
+name: Export runtime images for sandbox
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/export-runtime-images-for-sandbox.yml
+
+permissions:
+  contents: write
+
+env:
+  META_PATH: .github/runtime-images-export
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Record run metadata
+        run: |
+          set -euo pipefail
+          mkdir -p "$META_PATH"
+          printf '%s\n' "${{ github.run_id }}" > "$META_PATH/run-id.txt"
+          printf '%s\n' "${{ github.sha }}" > "$META_PATH/source-sha.txt"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add "$META_PATH"
+          git commit -m 'chore: record sandbox runtime image export run'
+          git push
+
+      - name: Pull and export image root filesystems
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/runtime-images
+          for spec in \
+            core=innei/mx-server:latest \
+            postgres=postgres:16-alpine \
+            redis=redis:7-alpine
+          do
+            name=${spec%%=*}
+            image=${spec#*=}
+            docker pull "$image"
+            docker image inspect "$image" > "/tmp/runtime-images/${name}-inspect.json"
+            cid=$(docker create "$image")
+            docker export "$cid" | gzip -1 > "/tmp/runtime-images/${name}-rootfs.tar.gz"
+            docker rm "$cid"
+          done
+          du -h /tmp/runtime-images/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-images
+          path: /tmp/runtime-images
+          compression-level: 0
+          retention-days: 1
