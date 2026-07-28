@@ -1,40 +1,27 @@
-name: Core migration audit
+name: Cleanup architecture audit
 
 on:
   push:
     branches: [master]
     paths:
       - .github/workflows/architecture-audit.yml
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  audit:
+  cleanup:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Inspect migration support
+      - name: Remove temporary audit files
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .github/architecture-audit
-          grep -RInEi \
-            --exclude-dir=.git \
-            --exclude-dir=node_modules \
-            --exclude='pnpm-lock.yaml' \
-            '(mongodb|mongo[^a-z]|mongo.*postgres|postgres.*mongo|cross.database|data migration|数据迁移)' \
-            README.md docs apps packages scripts 2>/dev/null \
-            > .github/architecture-audit/mongo-postgres.txt || true
-      - name: Commit audit
-        shell: bash
-        run: |
+          rm -rf .github/architecture-audit
+          rm -f .github/workflows/architecture-audit.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add .github/architecture-audit/mongo-postgres.txt
-          git diff --cached --quiet && exit 0
-          git commit -m 'chore: record MongoDB migration support audit'
+          git add -A .github
+          git commit -m 'chore: remove temporary architecture audit'
           git push
